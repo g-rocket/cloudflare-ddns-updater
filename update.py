@@ -115,7 +115,7 @@ def maybe_update(ipfile, ip):
 		#print('IP is still {}; not updating'.format(ip))
 		return
 	print('IP was {}, now {}; updating!'.format(old_ip, ip))
-	with open('old_ip', 'w') as old_ip_file:
+	with open(ipfile, 'w') as old_ip_file:
 		old_ip_file.write(ip)
 	update_cloudflare(old_ip, ip)
 
