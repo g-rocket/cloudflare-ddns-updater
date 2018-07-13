@@ -1,15 +1,29 @@
 #!/usr/bin/env python3
 
-#import dns.resolver
 import subprocess
+import socket
 import requests
 import os
+import json
+import ipaddress
 
-def get_ip():
-	return subprocess.check_output(['dig','+short','myip.opendns.com','@resolver1.opendns.com']).decode('utf-8').strip()
-	#ip_resolver = dns.resolver.Resolver()
-	#ip_resolver.nameservers = ['208.67.222.222'] # resolver1.opendns.com
-	#ip_resolver.query('myip.opendns.com')
+def get_ip(v6=False):
+	socket_type = socket.AF_INET6 if v6 else socket.AF_INET
+	remote_address = '2001:4860:4860::8888' if v6 else '8.8.8.8'
+	s = socket.socket(socket_type, socket.SOCK_DGRAM)
+	try:
+		s.connect((remote_address, 53))
+	except OSError as e:
+		if e.errno != 101: # 'Network is unreachable'
+			raise e
+		return False # desired v4/v6 not set up for internet access
+	addr = s.getsockname()[0]
+	if not ipaddress.ip_address(addr).is_private:
+		return addr
+	v4v6_flag = '-6' if v6 else '-4'
+	return json.loads(subprocess.check_output(
+		['dig',v4v6_flag,'+short','TXT','o-o.myaddr.l.google.com','@ns1.google.com'])
+		.decode('utf-8'))
 
 def get_var(varname):
 	if varname not in globals():
@@ -86,9 +100,9 @@ def update_cloudflare(old_ip, ip):
 		print('updating {} to point to {}'.format(name, ip))
 		update_record(zone_id, id, name, ip)
 
-def main():
-	ip = get_ip()
-	ipfile = os.path.expanduser('~/.ip')
+def maybe_update(ipfile, ip):
+	if not ip:
+		return
 	try:
 		with open(ipfile, 'r') as old_ip_file:
 			old_ip = old_ip_file.read()
@@ -104,6 +118,10 @@ def main():
 	with open('old_ip', 'w') as old_ip_file:
 		old_ip_file.write(ip)
 	update_cloudflare(old_ip, ip)
+
+def main():
+	maybe_update(os.path.expanduser('~/.ip'), get_ip(v6=False))
+	maybe_update(os.path.expanduser('~/.ip6'), get_ip(v6=True))
 
 if __name__ == '__main__':
 	main()
