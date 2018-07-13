@@ -75,32 +75,33 @@ def get_zone_id():
 		if res['name'] == ZONE_NAME:
 			return res['id']
 
-def get_records_to_change(zone_id, old_ip):
-	data = cloudflare_api_get('zones/{}/dns_records?type=A'.format(zone_id))
+def get_records_to_change(zone_id, old_ip, recordtype):
+	data = cloudflare_api_get('zones/{}/dns_records?type={}'.format(zone_id, recordtype))
 	records = []
 	for res in data['result']:
 		if res['content'] == old_ip:
 			records.append((res['id'], res['name']))
 	return records
 
-def update_record(zone_id, record_id, name, ip):
+def update_record(zone_id, record_id, name, ip, recordtype):
 	cloudflare_api_put('zones/{}/dns_records/{}'.format(zone_id, record_id), {
-			'type': 'A',
+			'type': recordtype,
 			'name': name,
 			'content': ip
 		})
 
-def update_cloudflare(old_ip, ip):
+def update_cloudflare(old_ip, ip, v6):
 	get_var('CLOUDFLARE_EMAIL')
 	get_var('CLOUDFLARE_KEY')
 	get_var('ZONE_NAME')
 	zone_id = get_zone_id()
-	records = get_records_to_change(zone_id, old_ip)
+	recordtype = 'AAAA' if v6 else 'A'
+	records = get_records_to_change(zone_id, old_ip, recordtype)
 	for id, name in records:
 		print('updating {} to point to {}'.format(name, ip))
-		update_record(zone_id, id, name, ip)
+		update_record(zone_id, id, name, ip, recordtype)
 
-def maybe_update(ipfile, ip):
+def maybe_update(ipfile, ip, v6):
 	if not ip:
 		return
 	try:
@@ -117,11 +118,11 @@ def maybe_update(ipfile, ip):
 	print('IP was {}, now {}; updating!'.format(old_ip, ip))
 	with open(ipfile, 'w') as old_ip_file:
 		old_ip_file.write(ip)
-	update_cloudflare(old_ip, ip)
+	update_cloudflare(old_ip, ip, v6)
 
 def main():
-	maybe_update(os.path.expanduser('~/.ip'), get_ip(v6=False))
-	maybe_update(os.path.expanduser('~/.ip6'), get_ip(v6=True))
+	maybe_update(os.path.expanduser('~/.ip'), get_ip(v6=False), v6=False)
+	maybe_update(os.path.expanduser('~/.ip6'), get_ip(v6=True), v6=True)
 
 if __name__ == '__main__':
 	main()
