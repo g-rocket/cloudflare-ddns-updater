@@ -88,12 +88,13 @@ def update_cloudflare(old_ip, ip):
 
 def main():
 	ip = get_ip()
+	ipfile = os.path.expanduser('~/.ip')
 	try:
-		with open('old_ip', 'r') as old_ip_file:
+		with open(ipfile, 'r') as old_ip_file:
 			old_ip = old_ip_file.read()
 	except FileNotFoundError:
 		print('Old IP not found; IP is {}'.format(ip))
-		with open('old_ip', 'w') as old_ip_file:
+		with open(ipfile, 'w') as old_ip_file:
 			old_ip_file.write(ip)
 		return
 	if old_ip == ip:
